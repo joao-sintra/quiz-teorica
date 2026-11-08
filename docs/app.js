@@ -1,7 +1,8 @@
-import { decrypt } from './crypto.js';
+import { decrypt, open } from './crypto.js';
 
 const main = document.querySelector('main');
 let data = null;
+let key = null;
 let cleanup = () => {};
 let onKey = null;
 
@@ -71,11 +72,28 @@ function option(o, n, onclick) {
   return h('button', { class: 'opcao', onclick }, h('kbd', {}, String(n + 1)), h('span', {}, o.text));
 }
 
+// Quiz images are encrypted with the bundle key; decrypted once into blob URLs.
+const images = new Map();
+function figure(p) {
+  if (!p.imagem) return null;
+  const img = h('img', { alt: p.imagemAlt, class: 'figura', decoding: 'async' });
+  if (!images.has(p.imagem.src)) {
+    images.set(p.imagem.src, fetch(p.imagem.src)
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer(); })
+      .then((buf) => open(key, new Uint8Array(buf)))
+      .then((bytes) => URL.createObjectURL(new Blob([bytes], { type: p.imagem.type }))));
+  }
+  images.get(p.imagem.src)
+    .then((url) => { img.src = url; })
+    .catch(() => { images.delete(p.imagem.src); img.replaceWith(h('p', { class: 'error' }, 'Não foi possível carregar a imagem.')); });
+  return img;
+}
+
 // --- unlock ---------------------------------------------------------------
 async function unlock(password, remember) {
   const res = await fetch('data/bundle.enc', { cache: 'no-cache' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  data = await decrypt(await res.json(), password);
+  ({ value: data, key } = await decrypt(await res.json(), password));
   if (remember) store.set('qt-pass', password);
   home();
 }
@@ -128,20 +146,49 @@ function home() {
   show(
     h('header', { class: 'bar' }, h('span', { class: 'crumb' }, 'Quiz Teórica'), h('button', { class: 'link', onclick: forget }, 'Sair')),
     h('h1', { tabindex: -1 }, 'Escolhe um tema'),
-    data.cadeiras.map((c) => h('section', { class: 'cadeira' },
-      h('div', { class: 'cadeira-head' },
-        h('h2', {}, c.nome),
-        h('button', { onclick: () => examSetup(c) }, 'Modo exame')),
-      h('ul', { class: 'temas' }, c.temas.map((t) => {
-        const items = itemsOf(c, [t]);
-        const right = items.filter((it) => progress[pkey(it)]).length;
-        return h('li', {},
-          h('button', { class: 'tema', onclick: () => practice(c, t) },
-            h('span', {}, t.nome),
-            h('span', { class: 'score', 'aria-label': `${right} de ${items.length} certas` },
-              `${right}/${items.length}`)));
-      })))),
+    data.cadeiras.map(cadeiraSection),
   );
+}
+
+// Which test (0 = everything) each subject is filtered to, remembered per browser.
+const testFilter = store.get('qt-teste', {});
+const testLabel = (n) => (n ? `${n}º teste` : 'Tudo');
+
+function cadeiraSection(c) {
+  const tests = [...new Set(c.temas.flatMap((t) => t.testes ?? []))].sort();
+  let chosen = tests.includes(testFilter[c.nome]) ? testFilter[c.nome] : 0;
+  const temas = () => (chosen ? c.temas.filter((t) => t.testes?.includes(chosen)) : c.temas);
+  const label = () => (chosen ? `${c.nome} · ${testLabel(chosen)}` : c.nome);
+
+  const list = h('ul', { class: 'temas' });
+  const renderList = () => list.replaceChildren(...temas().map((t) => {
+    const items = itemsOf(c, [t]);
+    const right = items.filter((it) => progress[pkey(it)]).length;
+    return h('li', {},
+      h('button', { class: 'tema', onclick: () => practice(c, t) },
+        h('span', {}, t.nome),
+        h('span', { class: 'score', 'aria-label': `${right} de ${items.length} certas` }, `${right}/${items.length}`)));
+  }));
+
+  const filters = [0, ...tests].map((n) => h('button', {
+    class: 'filtro',
+    'aria-pressed': String(n === chosen),
+    onclick: () => {
+      chosen = n;
+      testFilter[c.nome] = n;
+      store.set('qt-teste', testFilter);
+      filters.forEach((b, k) => b.setAttribute('aria-pressed', String(k === [0, ...tests].indexOf(n))));
+      renderList();
+    },
+  }, testLabel(n)));
+
+  renderList();
+  return h('section', { class: 'cadeira' },
+    h('div', { class: 'cadeira-head' },
+      h('h2', {}, c.nome),
+      h('button', { onclick: () => examSetup(c, temas(), label()) }, 'Modo exame')),
+    tests.length > 0 && h('div', { class: 'filtros', role: 'group', 'aria-label': `Matéria de ${c.nome}` }, filters),
+    list);
 }
 
 // --- practice: one topic, immediate feedback ------------------------------
@@ -182,6 +229,7 @@ function practice(c, t) {
     show(
       topBar(`${c.nome} · ${t.nome}`, h('span', { class: 'count' }, `${i + 1}/${items.length}`)),
       h('h1', { tabindex: -1, class: 'pergunta' }, it.p.q),
+      figure(it.p),
       h('div', { class: 'opcoes' }, buttons),
       feedback,
     );
@@ -204,19 +252,20 @@ function practiceDone(c, t, right, total) {
 }
 
 // --- exam: random questions across a subject, timed, graded at the end ----
-function examSetup(c) {
-  const all = itemsOf(c);
+function examSetup(c, temas = c.temas, label = c.nome) {
+  const all = itemsOf(c, temas);
+  const again = () => examSetup(c, temas, label);
   const count = h('input', { type: 'number', id: 'n', min: 1, max: all.length, value: Math.min(20, all.length), required: true });
   const minutes = h('input', { type: 'number', id: 'min', min: 1, max: 300, value: Math.min(20, all.length), required: true });
   show(
-    topBar(c.nome),
+    topBar(label),
     h('h1', { tabindex: -1 }, 'Modo exame'),
-    h('p', { class: 'lede' }, `Perguntas aleatórias de todos os temas de ${c.nome}. A correção só aparece no fim.`),
+    h('p', { class: 'lede' }, `Perguntas aleatórias de ${temas.length} tema(s) de ${label}. A correção só aparece no fim.`),
     h('form', {
       class: 'exam-setup',
       onsubmit: (e) => {
         e.preventDefault();
-        exam(c, shuffle(all).slice(0, Number(count.value)), Number(minutes.value) * 60);
+        exam(label, shuffle(all).slice(0, Number(count.value)), Number(minutes.value) * 60, again);
       },
     },
     h('label', { for: 'n' }, `Perguntas (máximo ${all.length})`), count,
@@ -225,7 +274,7 @@ function examSetup(c) {
   );
 }
 
-function exam(c, items, seconds) {
+function exam(label, items, seconds, again) {
   const opts = items.map((it) => optionsOf(it.p));
   const answers = items.map(() => null);
   const end = Date.now() + seconds * 1000;
@@ -233,7 +282,7 @@ function exam(c, items, seconds) {
 
   const clock = h('span', { class: 'clock', role: 'timer', 'aria-label': 'Tempo restante' });
   const body = h('div', { class: 'exam' });
-  const finish = () => examResults(c, items, opts, answers);
+  const finish = () => examResults(label, items, opts, answers, again);
   const leave = () => {
     if (confirm('Sair do exame? As respostas perdem-se.')) home();
   };
@@ -260,6 +309,7 @@ function exam(c, items, seconds) {
     body.replaceChildren(
       h('p', { class: 'meta' }, `${i + 1}/${items.length} · ${it.t}`),
       h('h1', { tabindex: -1, class: 'pergunta' }, it.p.q),
+      figure(it.p),
       h('div', { class: 'opcoes' }, buttons),
       h('div', { class: 'actions' },
         i > 0 && h('button', { onclick: () => { i--; render(); } }, 'Anterior'),
@@ -277,7 +327,7 @@ function exam(c, items, seconds) {
   show(
     h('header', { class: 'bar' },
       h('button', { class: 'link', onclick: leave }, 'Sair'),
-      h('span', { class: 'crumb' }, `${c.nome} · exame`),
+      h('span', { class: 'crumb' }, `${label} · exame`),
       clock,
       h('button', { class: 'link', onclick: finish }, 'Entregar')),
     body,
@@ -288,18 +338,19 @@ function exam(c, items, seconds) {
   render();
 }
 
-function examResults(c, items, opts, answers) {
+function examResults(label, items, opts, answers, again) {
   const isRight = (k) => answers[k] != null && opts[k][answers[k]].ok;
   items.forEach((it, k) => { if (answers[k] != null) record(it, isRight(k)); });
   const right = items.filter((_, k) => isRight(k)).length;
 
   show(
-    topBar(`${c.nome} · exame`),
+    topBar(`${label} · exame`),
     h('h1', { tabindex: -1 }, `${right} de ${items.length} certas`),
     h('ol', { class: 'review' }, items.map((it, k) => {
       const ok = isRight(k);
       return h('li', { class: ok ? 'ok' : 'bad' },
         h('p', { class: 'q' }, it.p.q),
+        figure(it.p),
         h('p', {}, h('span', { class: 'verdict' }, ok ? 'Certo' : 'Errado'), ' · A tua resposta: ',
           answers[k] == null ? 'sem resposta' : opts[k][answers[k]].text),
         !ok && h('p', {}, 'Resposta certa: ', h('strong', {}, it.p.opcoes[it.p.certa])),
@@ -307,7 +358,7 @@ function examResults(c, items, opts, answers) {
         h('p', { class: 'fonte' }, `${it.t} · Fonte: ${it.p.fonte}`));
     })),
     h('div', { class: 'actions' },
-      h('button', { class: 'primary', onclick: () => examSetup(c) }, 'Novo exame'),
+      h('button', { class: 'primary', onclick: again }, 'Novo exame'),
       h('button', { onclick: () => home() }, 'Voltar aos temas')),
   );
 }

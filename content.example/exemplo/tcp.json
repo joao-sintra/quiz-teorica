@@ -1,17 +1,28 @@
 {
   "cadeira": "Exemplo (sintético)",
   "tema": "TCP",
+  "documento": "02 TCP",
   "perguntas": [
     {
       "q": "Quantos segmentos tem o handshake de abertura de uma ligação TCP?",
-      "opcoes": ["2", "3", "4", "1"],
+      "opcoes": [
+        "2",
+        "3",
+        "4",
+        "1"
+      ],
       "certa": 1,
       "explicacao": "SYN, SYN-ACK e ACK: o three-way handshake sincroniza os números de sequência dos dois lados.",
       "fonte": "RFC 9293, secção 3.5"
     },
     {
       "q": "Que garantia dá o TCP e o UDP não dá?",
-      "opcoes": ["Entrega ordenada e fiável", "Endereçamento por porta", "Checksum do cabeçalho", "Envio para broadcast"],
+      "opcoes": [
+        "Entrega ordenada e fiável",
+        "Endereçamento por porta",
+        "Checksum do cabeçalho",
+        "Envio para broadcast"
+      ],
       "certa": 0,
       "explicacao": "Ambos usam portas e checksum. Só o TCP retransmite segmentos perdidos e entrega os dados por ordem.",
       "fonte": "RFC 9293, secção 2"

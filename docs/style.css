@@ -131,7 +131,20 @@ kbd { font: inherit; }
 .tema:hover:not(:disabled) { background: var(--surface); }
 .score { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+.filtros { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+.filtro { padding: 0.35rem 0.85rem; font-size: 0.95rem; border-radius: 999px; }
+.filtro[aria-pressed="true"] { background: var(--pen); border-color: var(--pen); color: var(--pen-ink); }
+
 /* --- questions --- */
+.figura {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 0 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: oklch(1 0 0); /* slides are drawn on white; keep them legible in dark mode */
+}
 .pergunta { font-size: 1.35rem; font-weight: 600; }
 .opcoes { display: grid; gap: 0.5rem; }
 .opcao {

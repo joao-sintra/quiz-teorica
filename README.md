@@ -9,7 +9,9 @@ Demo atual: conteúdo sintético (`content.example/`), password `demo-quiz-teori
 
 ```bash
 node --test                          # testes
-node tools/build.mjs                 # cifra content/ -> docs/data/bundle.enc
+node tools/pdf2md.mjs                # PDFs de materia/ -> .md
+node tools/testes.mjs                # escolher o que sai no 1º / 2º teste
+node tools/build.mjs                 # cifra content/ -> docs/data/
 python3 -m http.server -d docs 8000  # preview local
 ```
 

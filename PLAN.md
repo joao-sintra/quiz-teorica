@@ -8,12 +8,14 @@ Site estático (GitHub Pages) para colegas treinarem a teórica, mas a matéria 
 
 ```
 materia/ (PDFs, slides)      -- gitignored, só no teu PC
-   │  Claude lê e escreve perguntas
+   │  node tools/pdf2md.mjs -> .md ao lado de cada PDF (100x menos tokens)
+   │  Claude lê os .md e escreve perguntas
    ▼
 content/<cadeira>/<tema>.json -- gitignored, texto em claro
    │  node tools/build.mjs  (pede password)
    ▼
 docs/data/bundle.enc          -- commitado, AES-256-GCM
+docs/data/img/*.enc           -- uma imagem cifrada por ficheiro, mesma chave
    │  GitHub Pages
    ▼
 browser: password -> PBKDF2 -> AES-GCM decrypt -> quiz
@@ -52,17 +54,24 @@ Cloudflare Pages + Cloudflare Access (login por email, grátis até 50 pessoas):
 {
   "cadeira": "SAD",
   "tema": "Normalização",
+  "documento": "3. Processo de Data Warehousing",
   "perguntas": [
     {
       "q": "Texto da pergunta",
       "opcoes": ["A", "B", "C", "D"],
       "certa": 1,
       "explicacao": "Porque B é correta e as outras não.",
-      "fonte": "T3 slides, p. 12"
+      "fonte": "3. Processo de Data Warehousing, p. 12",
+      "imagem": "SAD/3. Processo de Data Warehousing.pdf#12",
+      "imagemAlt": "Diagrama das fases do processo"
     }
   ]
 }
 ```
+
+`imagem` e `imagemAlt` são opcionais (se houver imagem, a descrição é obrigatória). Uma página de PDF é renderizada no build; também aceita .png/.jpg/.webp/.gif de `materia/`.
+
+`node tools/testes.mjs` mostra os PDFs de cada cadeira e escolhes por números (ex.: `1-3,5`) o que sai em cada teste; fica em `content/settings.js`. Na app, cada cadeira tem o filtro Tudo / 1º teste / 2º teste, que vale para os temas e para o modo exame.
 
 O build valida cada pergunta (opções ≥ 2, `certa` dentro do intervalo, texto não vazio) e falha antes de cifrar.
 
@@ -81,7 +90,11 @@ O build valida cada pergunta (opções ≥ 2, `certa` dentro do intervalo, texto
 - [x] Teste roundtrip (`node --test`)
 - [x] App: unlock, lista, quiz, exame, progresso
 - [x] Repo GitHub + Pages a servir `docs/`
-- [ ] Tu: pôr PDFs em `materia/<cadeira>/` e pedir ao Claude para gerar `content/`
+- [x] PDFs em `materia/` convertidos para .md (`tools/pdf2md.mjs`)
+- [x] Imagens cifradas nas perguntas
+- [x] Filtro por 1º / 2º teste
+- [ ] Tu: `node tools/testes.mjs` para escolher o que sai em cada teste
+- [ ] Gerar `content/` por cadeira
 - [ ] Tu: escolher password real, `node tools/build.mjs`, push
 - [ ] Depois: passe visual com `/impeccable` (mundo visual próprio)
 
@@ -89,6 +102,7 @@ O build valida cada pergunta (opções ≥ 2, `certa` dentro do intervalo, texto
 
 ```bash
 mkdir -p materia/SAD   # copia PDFs/slides para aqui
+node tools/pdf2md.mjs  # PDFs -> .md
 # pede ao Claude: "gera perguntas de materia/SAD por tema" (segue CLAUDE.md)
 node tools/build.mjs   # pede password, valida, cifra
 git add docs/data && git commit -m "content: SAD" && git push
