@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "quiz", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "-d", "/home/sintra/dev/quiz-teorica/docs", "8765"], "port": 8765 }
+  ]
+}

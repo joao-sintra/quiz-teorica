@@ -1,0 +1,27 @@
+{
+  "cadeira": "Exemplo (sintético)",
+  "tema": "HTTP",
+  "perguntas": [
+    {
+      "q": "Que código de estado HTTP indica que o recurso não foi encontrado?",
+      "opcoes": ["200", "301", "404", "500"],
+      "certa": 2,
+      "explicacao": "404 Not Found é um erro do cliente (4xx): o servidor não encontrou o recurso pedido. 200 é sucesso, 301 é redireção permanente e 500 é erro do servidor.",
+      "fonte": "RFC 9110, secção 15.5.5"
+    },
+    {
+      "q": "Qual destes métodos HTTP é definido como seguro (não altera o estado do servidor)?",
+      "opcoes": ["POST", "GET", "DELETE", "PATCH"],
+      "certa": 1,
+      "explicacao": "GET, HEAD, OPTIONS e TRACE são métodos seguros. POST, DELETE e PATCH pedem alterações no servidor.",
+      "fonte": "RFC 9110, secção 9.2.1"
+    },
+    {
+      "q": "Que família de códigos de estado indica redireção?",
+      "opcoes": ["1xx", "2xx", "3xx", "4xx"],
+      "certa": 2,
+      "explicacao": "3xx indica que o cliente tem de fazer mais alguma coisa, normalmente seguir outro URL (ex.: 301, 302, 307).",
+      "fonte": "RFC 9110, secção 15.4"
+    }
+  ]
+}
