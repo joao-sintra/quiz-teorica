@@ -22,7 +22,7 @@ function show(...kids) {
   cleanup();
   cleanup = () => {};
   onKey = null;
-  main.replaceChildren(...kids.flat());
+  main.replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
   main.querySelector('h1')?.focus();
   scrollTo(0, 0);
 }
@@ -91,6 +91,7 @@ function figure(p) {
 
 // --- unlock ---------------------------------------------------------------
 async function unlock(password, remember) {
+  if (!globalThis.crypto?.subtle) throw new Error('WEB_CRYPTO_UNAVAILABLE');
   const res = await fetch('data/bundle.enc', { cache: 'no-cache' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   ({ value: data, key } = await decrypt(await res.json(), password));
@@ -115,6 +116,10 @@ function lockScreen(message = '') {
       } catch (x) {
         error.textContent = x.name === 'OperationError'
           ? 'Password errada. Confirma-a com quem te passou o link.'
+          : x.message === 'WEB_CRYPTO_UNAVAILABLE'
+            ? 'Este endereço não permite cifra segura. Abre em localhost ou HTTPS.'
+            : x.message?.startsWith('HTTP ')
+              ? `Não foi possível carregar o bundle (${x.message}). Confirma a pasta do servidor.`
           : 'Não foi possível carregar as perguntas. Verifica a ligação e tenta outra vez.';
         submit.disabled = false;
         submit.textContent = 'Entrar';
