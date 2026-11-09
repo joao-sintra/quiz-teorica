@@ -5,6 +5,8 @@ Quizzes da teórica por cadeira e tema, para treinar com a turma. Site estático
 - Porquê e como: [PLAN.md](PLAN.md)
 - Regras para gerar perguntas: [CLAUDE.md](CLAUDE.md)
 
+Ferramentas de estudo: revisão espaçada, erradas, marcadas, flashcards, exame por temas, slide de origem e estatísticas (ver [PLAN.md](PLAN.md)).
+
 Demo atual: conteúdo sintético (`content.example/`), password `demo-quiz-teorica`. Ao gerar o bundle com conteúdo real e uma password nova, a demo desaparece.
 
 ```bash

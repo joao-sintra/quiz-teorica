@@ -83,6 +83,16 @@ O build valida cada pergunta (opções ≥ 2, `certa` dentro do intervalo, texto
 4. Modo exame: N perguntas aleatórias de uma cadeira, com tempo, correção no fim.
 5. Progresso guardado no browser (localStorage).
 
+## Ferramentas de estudo
+
+- **Revisão do dia:** repetição espaçada (caixas de Leitner: 0, 1, 3, 7, 14 dias). Certa sobe de caixa, errada volta ao início.
+- **Erradas** e **Marcadas:** sessões só com as perguntas que erraste ou marcaste.
+- **Flashcards** por tema: vês a pergunta, mostras a resposta e dizes se soubeste (conta para a repetição espaçada).
+- **Exame:** escolhes os temas, tem tempo, e o resultado vem por tema.
+- **Ver slide:** cada pergunta com `fonte` "p. N" abre o slide original (cifrado como as imagens).
+- **Estatísticas:** dias seguidos, respostas dos últimos 14 dias e progresso por tema.
+- Tudo guardado só no browser (localStorage); sem contas.
+
 ## Passos
 
 - [x] PRODUCT.md (impeccable init)

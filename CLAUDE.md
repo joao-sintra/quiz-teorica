@@ -18,16 +18,17 @@ Write one file per topic: `content/<cadeira>/<tema-slug>.json`, format in PLAN.m
 
 - `cadeira` = the folder name under materia/ (DAD, DAE, SAD, TAES). `documento` = the PDF file name without `.pdf`, exactly.
 - Topics follow the course's own structure (one document, or one section of a long document), not invented groupings.
-- 4 options, exactly one correct (`certa` is the 0-based index). Distractors must be plausible and clearly wrong per the source.
+- 4 options, usually exactly one correct (`certa` is the 0-based index). Distractors must be plausible and clearly wrong per the source.
+- Other formats: true/false (`opcoes: ["Verdadeiro", "Falso"]`, q starts with "Verdadeiro ou falso:") and several correct answers (`certa: [0, 2]`, 2+ distinct indexes, q ends with "(escolhe todas as certas)"). Use them for a minority of questions.
 - `explicacao`: why the right answer is right and the tempting wrong one is wrong, in 1-3 sentences, from the source only.
-- `fonte`: document + page, e.g. "2. OLAP e Data Warehousing, p. 12".
+- `fonte`: document + page, e.g. "2. OLAP e Data Warehousing, p. 12". The build turns the first `p. N` into a slide image ("Ver slide" button), so the page must be exact and `documento` must match the PDF name.
 - Portuguese (pt-PT). Don't invent facts the material does not state; skip what is ambiguous.
 - No duplicate questions within a topic.
 
 ### Images
 
 Use an image only when the question is about the figure (a diagram, model, table, architecture). Add:
-- `"imagem": "<cadeira>/<doc>.pdf#<page>"` (rendered at build) or `"imagem": "<cadeira>/img/x.png"` (paths relative to materia/).
+- `"imagem": "<cadeira>/<doc>.pdf#<page>"` (rendered at build) or `"imagem": "<cadeira>/img/x.png"` (paths relative to materia/). Crop the figure without the slide title or captions: `pdftoppm -png -r 150 -f N -l N -x X -y Y -W W -H H -singlefile "<pdf>" materia/<cadeira>/img/<name>`.
 - `"imagemAlt"`: what the figure shows, without giving the answer away.
 Never pick a page whose text contains the answer.
 

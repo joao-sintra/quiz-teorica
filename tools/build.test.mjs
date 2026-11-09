@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { deriveKey, seal, open, pack, decrypt, newSalt } from '../docs/crypto.js';
-import { validate, validateTestes, bundle } from './build.mjs';
+import { validate, validateTestes, bundle, slideSpec } from './build.mjs';
 import { pagesToMarkdown, figurePagesFrom } from './pdf2md.mjs';
 import { parseSelection, settingsSource } from './testes.mjs';
 
@@ -76,4 +76,19 @@ test('test picker parses selections and writes importable settings', async () =>
   const src = settingsSource({ testes: { SAD: { 1: ['1. Introdução'], 2: [] } } });
   const mod = await import(`data:text/javascript,${encodeURIComponent(src)}`);
   assert.deepEqual(mod.default.testes.SAD['1'], ['1. Introdução']);
+});
+
+test('certa accepts a single index or 2+ distinct indexes', () => {
+  const q = (certa) => ({ ...good, perguntas: [{ ...good.perguntas[0], opcoes: ['a', 'b', 'c'], certa }] });
+  assert.deepEqual(validate(q(2)), []);
+  assert.deepEqual(validate(q([0, 2])), []);
+  for (const bad of [3, [0], [1, 1], [0, 3], 'a']) assert.match(validate(q(bad)).join(), /"certa"/);
+});
+
+test('slideSpec derives the cited page from fonte', () => {
+  const t = { cadeira: 'SAD', documento: 'Doc 1' };
+  assert.equal(slideSpec(t, { fonte: 'Doc 1, p. 12' }), 'SAD/Doc 1.pdf#12');
+  assert.equal(slideSpec(t, { fonte: 'Doc 1, p. 25-26' }), 'SAD/Doc 1.pdf#25');
+  assert.equal(slideSpec(t, { fonte: 'RFC 9110, secção 3' }), null);
+  assert.equal(slideSpec({ cadeira: 'SAD' }, { fonte: 'x, p. 3' }), null);
 });

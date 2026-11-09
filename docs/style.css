@@ -187,3 +187,29 @@ kbd { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* --- study tools --- */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.acoes { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+.acoes button { padding: 0.4rem 0.85rem; font-size: 0.95rem; }
+.acoes button:disabled { color: var(--muted); border-style: dashed; }
+.tema-linha { display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--line); }
+.tema-linha .tema { flex: 1; border-bottom: 0; min-width: 0; }
+.tema-linha .link { flex: none; font-size: 0.9rem; }
+.marca[aria-pressed="true"] { color: var(--ok); font-weight: 600; }
+.opcao.falta { border-style: dashed; border-color: var(--ok); }
+.figura.slide { margin-top: 0.75rem; }
+.slide-box { margin: 0 0 0.75rem; }
+
+.temas-exame { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.5rem 0.75rem 0.75rem; margin: 0 0 0.5rem; }
+.temas-exame legend { padding: 0 0.25rem; color: var(--muted); }
+.temas-exame .check { margin: 0.4rem 0 0; }
+
+.por-tema { width: 100%; border-collapse: collapse; margin: 0 0 1.5rem; }
+.por-tema caption { text-align: left; font-weight: 600; margin-bottom: 0.5rem; }
+.por-tema th { text-align: left; font-weight: 400; padding: 0.4rem 0.75rem 0.4rem 0; }
+.por-tema td { padding: 0.4rem 0; }
+.por-tema .num { text-align: right; padding-right: 0.75rem; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+.por-tema td:last-child { width: 40%; }
+.barra { height: 0.6rem; background: var(--line); border-radius: 999px; overflow: hidden; }
+.barra span { display: block; height: 100%; background: var(--pen); }

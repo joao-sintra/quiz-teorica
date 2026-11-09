@@ -40,7 +40,12 @@ export function validate(topic, file = 'topic') {
     else seen.add(p.q);
     if (!Array.isArray(p.opcoes) || p.opcoes.length < 2 || !p.opcoes.every(isText)) errors.push(`${at}: "opcoes" precisa de 2+ textos`);
     else if (new Set(p.opcoes).size !== p.opcoes.length) errors.push(`${at}: opções repetidas`);
-    if (!Number.isInteger(p.certa) || p.certa < 0 || p.certa >= (p.opcoes?.length ?? 0)) errors.push(`${at}: "certa" fora do intervalo`);
+    // certa: índice da certa, ou lista de 2+ índices distintos quando há várias certas
+    const certas = Array.isArray(p.certa) ? p.certa : [p.certa];
+    const n = p.opcoes?.length ?? 0;
+    if (!certas.every((c) => Number.isInteger(c) && c >= 0 && c < n) || new Set(certas).size !== certas.length || (Array.isArray(p.certa) && certas.length < 2)) {
+      errors.push(`${at}: "certa" fora do intervalo (índice, ou lista de 2+ índices distintos)`);
+    }
     if (!isText(p.explicacao)) errors.push(`${at}: falta "explicacao"`);
     if (!isText(p.fonte)) errors.push(`${at}: falta "fonte"`);
     if (p.imagem !== undefined) {
@@ -86,13 +91,19 @@ export function bundle(topics, testes = {}) {
   };
 }
 
+// Slide of the page cited in "fonte" (first number after "p."), as a "<cadeira>/<doc>.pdf#<page>" spec; null when unknown.
+export function slideSpec(topic, p) {
+  const page = p.fonte?.match(/\bp\.\s*(\d+)/)?.[1];
+  return topic.documento && page ? `${topic.cadeira}/${topic.documento}.pdf#${page}` : null;
+}
+
 // Raw bytes for an image spec: a PDF page rendered to JPEG, or an image file. Paths are relative to materia/.
-function readImage(spec, tmp) {
+function readImage(spec, tmp, slide = false) {
   const page = spec.match(PDF_PAGE);
   if (!page) return { bytes: readFileSync(join(materia, spec)), type: IMAGE_TYPES[extname(spec).toLowerCase()] };
   // shortcut: renders the whole page; add a crop (pdftoppm -x -y -W -H) if a slide gives the answer away.
   const out = join(tmp, 'page');
-  execFileSync('pdftoppm', ['-jpeg', '-jpegopt', 'quality=82', '-scale-to', '1200', '-f', page[2], '-l', page[2], '-singlefile', join(materia, page[1]), out], { stdio: ['ignore', 'ignore', 'pipe'] });
+  execFileSync('pdftoppm', ['-jpeg', '-jpegopt', `quality=${slide ? 65 : 82}`, '-scale-to', slide ? '1000' : '1200', '-f', page[2], '-l', page[2], '-singlefile', join(materia, page[1]), out], { stdio: ['ignore', 'ignore', 'pipe'] });
   return { bytes: readFileSync(`${out}.jpg`), type: 'image/jpeg' };
 }
 
@@ -167,19 +178,31 @@ async function main() {
   try {
     for (const t of topics) {
       for (const p of t.perguntas) {
-        if (!p.imagem) continue;
-        if (!written.has(p.imagem)) {
-          let img;
+        const add = async (spec, slide) => {
+          const id = (slide ? 'slide:' : 'img:') + spec;
+          if (!written.has(id)) {
+            const img = readImage(spec, tmp, slide);
+            const name = `${createHash('sha256').update(img.bytes).digest('hex').slice(0, 20)}.enc`;
+            if (!reused || !existsSync(join(imgDir, name))) await writeFile(join(imgDir, name), await seal(key, img.bytes));
+            written.set(id, { src: `data/img/${name}`, type: img.type });
+          }
+          return written.get(id);
+        };
+        if (p.imagem) {
           try {
-            img = readImage(p.imagem, tmp);
+            p.imagem = await add(p.imagem, false);
           } catch (e) {
             throw new Error(`${t.cadeira} / ${t.tema}: imagem "${p.imagem}" não encontrada (${e.stderr?.toString().trim() || e.message})`);
           }
-          const name = `${createHash('sha256').update(img.bytes).digest('hex').slice(0, 20)}.enc`;
-          if (!reused || !existsSync(join(imgDir, name))) await writeFile(join(imgDir, name), await seal(key, img.bytes));
-          written.set(p.imagem, { src: `data/img/${name}`, type: img.type });
         }
-        p.imagem = written.get(p.imagem);
+        const spec = slideSpec(t, p);
+        if (spec) {
+          try {
+            p.slide = await add(spec, true);
+          } catch (e) {
+            console.warn(`aviso: sem slide para "${spec}" (${t.tema}): ${e.stderr?.toString().trim() || e.message}`);
+          }
+        }
       }
     }
   } finally {
@@ -192,7 +215,7 @@ async function main() {
   await writeFile(bundlePath, JSON.stringify(await pack(key, salt, data)));
 
   const n = topics.reduce((s, t) => s + t.perguntas.length, 0);
-  console.log(`${data.cadeiras.length} cadeira(s), ${topics.length} tema(s), ${n} pergunta(s), ${written.size} imagem(ns) -> ${relative(root, outDir)}`);
+  console.log(`${data.cadeiras.length} cadeira(s), ${topics.length} tema(s), ${n} pergunta(s), ${[...written.keys()].filter((k) => k.startsWith('img:')).length} imagem(ns), ${[...written.keys()].filter((k) => k.startsWith('slide:')).length} slide(s) -> ${relative(root, outDir)}`);
 }
 
 if (import.meta.main) {
