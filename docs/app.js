@@ -1,4 +1,5 @@
 import { decrypt, open } from './crypto.js';
+import { enabled, rpc } from './leaderboard.js';
 
 const main = document.querySelector('main');
 let data = null;
@@ -22,6 +23,7 @@ function show(...kids) {
   cleanup();
   cleanup = () => {};
   onKey = null;
+  main.className = '';
   main.replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
   main.querySelector('h1')?.focus();
   scrollTo(0, 0);
@@ -77,6 +79,98 @@ function record(it, ok) {
   if (ok) d[1]++;
   store.set('qt-progress', progress);
   store.set('qt-log', log);
+  queueScore(ok);
+}
+
+// --- profile + leaderboard: answers are batched and sent shortly after --------
+let user = store.get('qt-user');
+const pending = store.get('qt-pending', [0, 0]); // [answered, right] not yet sent
+let timer;
+
+async function flush(keepalive = false) {
+  if (!enabled || !user || !pending[0]) return;
+  const [a, r] = pending;
+  pending[0] = pending[1] = 0;
+  store.set('qt-pending', pending);
+  try {
+    await rpc('submit_score', { p_name: user.name, p_pw: user.pw, p_answered: a, p_right: r }, keepalive);
+  } catch {
+    pending[0] += a;
+    pending[1] += r;
+    store.set('qt-pending', pending);
+  }
+}
+
+function queueScore(ok) {
+  pending[0]++;
+  if (ok) pending[1]++;
+  store.set('qt-pending', pending);
+  clearTimeout(timer);
+  timer = setTimeout(flush, 4000);
+}
+addEventListener('visibilitychange', () => document.hidden && flush(true));
+
+const PROFILE_ERRORS = {
+  taken: 'Esse nome já existe. Escolhe outro ou entra.',
+  bad_credentials: 'Nome ou senha errados.',
+  bad_name: 'Nome: 2 a 20 letras, números, espaço, _ . ou -',
+  short_pw: 'A senha precisa de pelo menos 4 caracteres.',
+};
+
+function profileScreen(message = '') {
+  const name = h('input', { id: 'nm', name: 'username', autocomplete: 'username', required: true, minlength: 2, maxlength: 20 });
+  const pw = h('input', { type: 'password', id: 'pp', name: 'password', autocomplete: 'current-password', required: true, minlength: 4 });
+  const error = h('p', { class: 'error', role: 'alert' }, message);
+  const go = async (register) => {
+    error.textContent = '';
+    const args = { p_name: name.value.trim(), p_pw: pw.value };
+    try {
+      let canonical = args.p_name;
+      if (register) await rpc('register', args);
+      else if (!(canonical = await rpc('login', args))) throw new Error('bad_credentials');
+      user = { name: canonical, pw: args.p_pw };
+      store.set('qt-user', user);
+      boot();
+    } catch (x) {
+      error.textContent = PROFILE_ERRORS[x.message] ?? 'Não foi possível contactar o servidor. Tenta outra vez.';
+    }
+  };
+  const form = h('form', { class: 'unlock', onsubmit: (e) => { e.preventDefault(); go(false); } },
+    h('label', { for: 'nm' }, 'Nome'), name,
+    h('label', { for: 'pp' }, 'Senha do perfil'), pw,
+    h('button', { type: 'submit', class: 'primary' }, 'Entrar'),
+    h('button', { type: 'button', onclick: () => form.reportValidity() && go(true) }, 'Criar perfil'),
+    error);
+  show(
+    h('h1', { tabindex: -1 }, 'Quiz Teórica'),
+    h('p', { class: 'lede' }, 'Cria um perfil (nome e senha só teus) para entrares no ranking da turma. A senha do perfil não é a da turma.'),
+    form,
+  );
+  name.focus();
+}
+
+async function ranking() {
+  await flush();
+  let rows;
+  try {
+    rows = await rpc('leaderboard', {});
+  } catch {
+    return show(topBar('Ranking'), h('p', { class: 'error', role: 'alert' }, 'Não foi possível carregar o ranking.'));
+  }
+  show(
+    topBar('Ranking'),
+    h('h1', { tabindex: -1 }, 'Ranking'),
+    rows.length
+      ? h('table', { class: 'por-tema' },
+        h('caption', {}, 'Respostas certas acumuladas'),
+        h('tbody', {}, rows.map((r, k) => h('tr', { class: r.name === user?.name ? 'eu' : null },
+          h('th', { scope: 'row' }, `${k + 1}. ${r.name}`),
+          h('td', { class: 'num', title: `${r.right_count} certas em ${r.answered}` }, `${r.right_count}/${r.answered}`),
+          h('td', {}, bar(r.right_count / r.answered))))))
+      : h('p', { class: 'meta' }, 'Ainda ninguém respondeu.'),
+    h('div', { class: 'actions' },
+      h('button', { onclick: () => { store.set('qt-user', null); user = null; profileScreen(); } }, `Sair do perfil (${user?.name})`)),
+  );
 }
 
 function toggleMark(it) {
@@ -96,7 +190,7 @@ const answerText = (p) => certasOf(p).map((k) => p.opcoes[k]).join(' · ');
 
 function topBar(label, ...extra) {
   return h('header', { class: 'bar' },
-    h('button', { class: 'link', onclick: () => home() }, 'Temas'),
+    h('button', { class: 'link', onclick: () => home() }, 'Cadeiras'),
     h('span', { class: 'crumb' }, label),
     ...extra);
 }
@@ -205,10 +299,46 @@ function home() {
   show(
     h('header', { class: 'bar' },
       h('span', { class: 'crumb' }, 'Quiz Teórica'),
+      enabled && h('button', { class: 'link', onclick: ranking }, 'Ranking'),
       h('button', { class: 'link', onclick: stats }, 'Estatísticas'),
       h('button', { class: 'link', onclick: forget }, 'Sair')),
-    h('h1', { tabindex: -1 }, 'Escolhe um tema'),
-    data.cadeiras.map(cadeiraSection),
+    h('h1', { tabindex: -1 }, 'Escolhe uma cadeira'),
+    h('div', { class: 'cards' }, data.cadeiras.map(courseCard)),
+  );
+  main.classList.add('wide');
+}
+
+// Banner art is derived from the name, so each subject keeps its own colour and node pattern.
+function banner(name) {
+  let n = 0;
+  for (const ch of name) n = (n * 31 + ch.charCodeAt(0)) >>> 0;
+  const rnd = () => ((n = (n * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  const hue = 250 + Math.round(rnd() * 90); // violet to magenta
+  const pts = Array.from({ length: 16 }, () => [60 + rnd() * 40, rnd() * 100]);
+  const lines = pts.flatMap((a, i) => pts.slice(i + 1).filter((b) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 24).map((b) => `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}"/>`));
+  const dots = pts.map((a) => `<circle cx="${a[0].toFixed(1)}" cy="${a[1].toFixed(1)}" r="${(0.5 + rnd()).toFixed(1)}"/>`);
+  const el = h('div', { class: 'banner', style: `--h:${hue}`, 'aria-hidden': 'true' });
+  el.innerHTML = `<svg viewBox="0 0 100 100" preserveAspectRatio="xMaxYMid slice"><g stroke="#fff" stroke-opacity=".35" stroke-width=".25">${lines.join('')}</g><g fill="#fff">${dots.join('')}</g></svg>`;
+  el.append(h('span', { class: 'pill' }, 'Teórica'), h('span', { class: 'banner-name' }, name));
+  return el;
+}
+
+function courseCard(c) {
+  const items = itemsOf(c);
+  const right = items.filter(isRight).length;
+  const pct = items.length ? Math.round((right / items.length) * 100) : 0;
+  return h('button', { class: 'card', onclick: () => cadeiraPage(c) },
+    banner(c.nome),
+    h('span', { class: 'card-title' }, `${c.temas.length} temas · ${items.length} perguntas`),
+    h('span', { class: 'card-meta' }, `${pct}% certas`, h('span', { class: 'sr' }, ` (${right} de ${items.length})`)),
+    bar(right / (items.length || 1)));
+}
+
+function cadeiraPage(c) {
+  show(
+    topBar(c.nome),
+    h('h1', { tabindex: -1 }, c.nome),
+    cadeiraSection(c),
   );
 }
 
@@ -259,7 +389,6 @@ function cadeiraSection(c) {
 
   render();
   return h('section', { class: 'cadeira' },
-    h('div', { class: 'cadeira-head' }, h('h2', {}, c.nome)),
     tests.length > 0 && h('div', { class: 'filtros', role: 'group', 'aria-label': `Matéria de ${c.nome}` }, filters),
     acoes,
     list);
@@ -571,12 +700,13 @@ function stats() {
 }
 
 // --- start ----------------------------------------------------------------
-const saved = store.get('qt-pass');
-if (saved) {
+function boot() {
+  if (enabled && !user) return profileScreen();
+  const saved = store.get('qt-pass');
+  if (!saved) return lockScreen();
   unlock(saved).catch((x) => {
     store.set('qt-pass', null);
     lockScreen(x.name === 'OperationError' ? 'A password mudou. Pede a nova a quem te passou o link.' : '');
   });
-} else {
-  lockScreen();
 }
+boot();

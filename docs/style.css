@@ -213,3 +213,43 @@ kbd { font: inherit; }
 .por-tema td:last-child { width: 40%; }
 .barra { height: 0.6rem; background: var(--line); border-radius: 999px; overflow: hidden; }
 .barra span { display: block; height: 100%; background: var(--pen); }
+.por-tema tr.eu th { font-weight: 700; }
+
+/* --- home: subject cards --- */
+main.wide { max-width: 68rem; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.card {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+  text-align: left;
+  padding: 0.6rem 0.6rem 0.9rem;
+  border-radius: 14px;
+  transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+.card:hover { border-color: var(--pen); box-shadow: 0 0 0 1px var(--pen); }
+.card > :not(.banner) { padding: 0 0.3rem; }
+.card-title { font-weight: 700; margin-top: 0.4rem; }
+.card-meta { color: var(--muted); font-size: 0.9rem; }
+.card .barra { height: 0.35rem; margin: 0.35rem 0.3rem 0; }
+.banner {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 85% 40%, oklch(0.5 0.26 var(--h)), transparent 62%),
+    oklch(0.16 0.04 var(--h));
+}
+.banner svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pill {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.6rem;
+  border: 1px solid oklch(1 0 0 / 0.55);
+  border-radius: 999px;
+}
+.banner-name { position: absolute; left: 0.9rem; bottom: 0.8rem; font-size: 1.6rem; font-weight: 600; line-height: 1.1; }

@@ -117,3 +117,12 @@ node tools/pdf2md.mjs  # PDFs -> .md
 node tools/build.mjs   # pede password, valida, cifra
 git add docs/data && git commit -m "content: SAD" && git push
 ```
+
+## Perfis e ranking (opcional)
+
+Site estático não guarda dados partilhados, por isso o ranking usa um Supabase grátis. Desligado enquanto `docs/config.js` tiver `url` vazio.
+
+1. Criar projeto em supabase.com, abrir o SQL editor e correr `supabase.sql`.
+2. Copiar a Project URL e a anon key (pública por desenho) para `docs/config.js`, commit e push.
+
+Perfil = nome + senha própria (guardada com bcrypt no servidor), diferente da password da turma. As tabelas ficam fechadas (RLS); o browser só chama as funções `register`, `login`, `submit_score` e `leaderboard`. O ranking soma respostas certas; quem tem a senha de outro perfil pode submeter pontos por ele, risco aceite numa turma pequena.
