@@ -188,9 +188,13 @@ const isMulti = (opts) => opts.filter((o) => o.ok).length > 1;
 const gradeOf = (opts, sel) => sel.length > 0 && opts.every((o, k) => o.ok === sel.includes(k));
 const answerText = (p) => certasOf(p).map((k) => p.opcoes[k]).join(' · ');
 
+// Subject being studied; "back" returns to its page instead of the subject list.
+let cadeira = null;
+const back = () => (cadeira ? cadeiraPage(cadeira) : home());
+
 function topBar(label, ...extra) {
   return h('header', { class: 'bar' },
-    h('button', { class: 'link', onclick: () => home() }, 'Cadeiras'),
+    h('button', { class: 'link', onclick: back }, cadeira ? cadeira.nome : 'Cadeiras'),
     h('span', { class: 'crumb' }, label),
     ...extra);
 }
@@ -291,6 +295,7 @@ function lockScreen(message = '') {
 
 // --- home -----------------------------------------------------------------
 function home() {
+  cadeira = null;
   const forget = () => {
     store.set('qt-pass', null);
     data = null;
@@ -335,6 +340,7 @@ function courseCard(c) {
 }
 
 function cadeiraPage(c) {
+  cadeira = c;
   show(
     topBar(c.nome),
     h('h1', { tabindex: -1 }, c.nome),
@@ -461,7 +467,7 @@ function done(label, right, total, again) {
     h('h1', { tabindex: -1 }, `${right} de ${total} certas`),
     h('div', { class: 'actions' },
       h('button', { class: 'primary', onclick: again }, 'Repetir'),
-      h('button', { onclick: () => home() }, 'Voltar aos temas')),
+      h('button', { onclick: back }, 'Voltar aos temas')),
   );
 }
 
@@ -564,7 +570,7 @@ function exam(label, items, seconds, again) {
   const body = h('div', { class: 'exam' });
   const finish = () => examResults(label, items, opts, answers, again);
   const leave = () => {
-    if (confirm('Sair do exame? As respostas perdem-se.')) home();
+    if (confirm('Sair do exame? As respostas perdem-se.')) back();
   };
 
   const tick = () => {
@@ -651,7 +657,7 @@ function examResults(label, items, opts, answers, again) {
       slideButton(it.p)))),
     h('div', { class: 'actions' },
       h('button', { class: 'primary', onclick: again }, 'Novo exame'),
-      h('button', { onclick: () => home() }, 'Voltar aos temas')),
+      h('button', { onclick: back }, 'Voltar aos temas')),
   );
 }
 
@@ -695,7 +701,7 @@ function stats() {
             h('td', { class: 'num', title: `${right} certas, ${tried} vistas, ${items.length} no total` }, `${right}/${items.length}`),
             h('td', {}, bar(right / items.length)));
         }))))),
-    h('div', { class: 'actions' }, h('button', { onclick: () => home() }, 'Voltar aos temas')),
+    h('div', { class: 'actions' }, h('button', { onclick: back }, 'Voltar aos temas')),
   );
 }
 
