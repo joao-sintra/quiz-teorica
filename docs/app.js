@@ -190,7 +190,8 @@ const answerText = (p) => certasOf(p).map((k) => p.opcoes[k]).join(' · ');
 
 // Subject being studied; "back" returns to its page instead of the subject list.
 let cadeira = null;
-const back = () => (cadeira ? cadeiraPage(cadeira) : home());
+// Browser back goes to the previous screen when there is one inside the app.
+const back = () => (history.state?.id > firstView ? history.back() : cadeira ? cadeiraPage(cadeira) : home());
 
 function topBar(label, ...extra) {
   return h('header', { class: 'bar' },
@@ -705,6 +706,34 @@ function stats() {
     h('div', { class: 'actions' }, h('button', { onclick: back }, 'Voltar aos temas')),
   );
 }
+
+// --- history: each main screen is a browser history entry ---------------------
+// shortcut: restoring a study/exam entry restarts it (state lives in closures), fine for quizzes.
+const views = new Map();
+let firstView = 0;
+let seq = 0;
+function nav(fn) {
+  return (...args) => {
+    const id = ++seq;
+    views.set(id, { run: () => fn(...args), cad: cadeira });
+    if (history.state?.id) history.pushState({ id }, '');
+    else { history.replaceState({ id }, ''); firstView = id; }
+    fn(...args);
+  };
+}
+addEventListener('popstate', (e) => {
+  const v = data && views.get(e.state?.id);
+  if (!v) return;
+  cadeira = v.cad;
+  v.run();
+});
+home = nav(home);
+cadeiraPage = nav(cadeiraPage);
+ranking = nav(ranking);
+stats = nav(stats);
+study = nav(study);
+flash = nav(flash);
+examSetup = nav(examSetup);
 
 // --- start ----------------------------------------------------------------
 function boot() {
