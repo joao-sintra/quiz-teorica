@@ -40,5 +40,16 @@ language sql security definer set search_path = public as $$
   select name, answered, right_count from profiles where answered > 0 order by right_count desc, answered asc limit 20;
 $$;
 
-revoke all on function register, login, submit_score, leaderboard from public;
-grant execute on function register, login, submit_score, leaderboard to anon;
+-- The class password that opens docs/data/bundle.enc. Released only to a valid profile.
+-- Set it once (never in the repo):  insert into app_secret values ('class', '<password>') on conflict (k) do update set v = excluded.v;
+create table if not exists app_secret (k text primary key, v text not null);
+alter table app_secret enable row level security;
+
+create or replace function unlock_key(p_name text, p_pw text) returns text
+language sql security definer set search_path = public, extensions as $$
+  select v from app_secret where k = 'class'
+    and exists (select 1 from profiles where lower(name) = lower(p_name) and pw_hash = crypt(p_pw, pw_hash));
+$$;
+
+revoke all on function register, login, submit_score, leaderboard, unlock_key from public;
+grant execute on function register, login, submit_score, leaderboard, unlock_key to anon;

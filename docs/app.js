@@ -143,7 +143,7 @@ function profileScreen(message = '') {
     error);
   show(
     h('h1', { tabindex: -1 }, 'Quiz Teórica'),
-    h('p', { class: 'lede' }, 'Cria um perfil (nome e senha só teus) para entrares no ranking da turma. A senha do perfil não é a da turma.'),
+    h('p', { class: 'lede' }, 'Cria um perfil (nome e senha só teus) para entrares no ranking da turma. Entras só com isto.'),
     form,
   );
   name.focus();
@@ -297,9 +297,10 @@ function lockScreen(message = '') {
 function home() {
   cadeira = null;
   const forget = () => {
-    store.set('qt-pass', null);
     data = null;
-    lockScreen();
+    if (!enabled) store.set('qt-pass', null);
+    else { store.set('qt-user', null); user = null; }
+    boot();
   };
   show(
     h('header', { class: 'bar' },
@@ -707,7 +708,16 @@ function stats() {
 
 // --- start ----------------------------------------------------------------
 function boot() {
-  if (enabled && !user) return profileScreen();
+  if (enabled) {
+    if (!user) return profileScreen();
+    // The class password lives server-side and is only released to a valid profile.
+    return rpc('unlock_key', { p_name: user.name, p_pw: user.pw })
+      .then((pass) => {
+        if (!pass) { store.set('qt-user', null); user = null; return profileScreen('Sessão expirada. Entra outra vez.'); }
+        return unlock(pass);
+      })
+      .catch(() => profileScreen('Não foi possível abrir as perguntas. Tenta outra vez.'));
+  }
   const saved = store.get('qt-pass');
   if (!saved) return lockScreen();
   unlock(saved).catch((x) => {
